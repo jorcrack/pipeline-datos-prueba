@@ -45,20 +45,21 @@ class BigQueryUploader:
         print(f"Éxito absoluto: Datos cargados en BigQuery en la región {self.location}.")
 
 if __name__ == "__main__":
-    # Usamos una API pública y estable de prueba
     API_URL = "https://jsonplaceholder.typicode.com/posts"
     
-    DATASET_NAME = "SANDBOX_crypto_api"
-    TABLE_NAME = "raw_api_data"
-
-    try:
-        # 1. Instanciar el descargador y extraer la información de la API
-        downloader = APIDownloader(API_URL)
-        df_datos = downloader.fetch_data()
-
-        # 2. Instanciar el cargador y subir la información a Google
-        uploader = BigQueryUploader(DATASET_NAME, TABLE_NAME, location="europe-west1")
-        uploader.upload_dataframe(df_datos)
-        
-    except Exception as e:
-        print(f"Ocurrió un error en el pipeline: {e}")
+    # 1. Descarga de datos
+    downloader = APIDownloader(API_URL)
+    df_datos = downloader.fetch_data()
+    
+    # 2. Carga en el Sandbox original (Paso 1 y 2 del enunciado)
+    uploader_sandbox = BigQueryUploader("SANDBOX_crypto_api", "raw_api_data", location="europe-west1")
+    uploader_sandbox.upload_dataframe(df_datos)
+    
+    # 3. Transformación e Ingesta en la tabla final de INTEGRATION (Apartado 3)
+    # Aplicamos la transformación (títulos en mayúsculas) directamente en el dataframe
+    df_datos['title'] = df_datos['title'].str.upper()
+    
+    # Subimos los datos a la tabla final. Usamos WRITE_TRUNCATE para garantizar la IDEMPOTENCIA
+    # (si el script se ejecuta 2 veces, se sobrescribe limpiamente sin duplicar filas)
+    uploader_integration = BigQueryUploader("INTEGRATION", "integration_prueba_tecnica", location="europe-west1")
+    uploader_integration.upload_dataframe(df_datos)
